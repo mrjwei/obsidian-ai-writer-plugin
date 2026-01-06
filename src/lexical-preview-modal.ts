@@ -63,7 +63,7 @@ export class LexicalPreviewModal extends Modal {
         issue.message + " → " + issue.suggestion
       )}">${escaped}</span>`;
 
-      html = html.replaceAll(escaped, replacement);
+      html = html.split(escaped).join(replacement);
     }
 
     return html.replace(/\n/g, "<br>");

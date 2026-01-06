@@ -11,8 +11,9 @@ export class AIActionModal extends Modal {
   settings: AIWriterSettings;
 
   action: ActionType = "lexical";
-  preset = "";
   userPrompt = "";
+
+  private analyzeButton?: HTMLButtonElement;
 
   constructor(app: App, editor: Editor, settings: AIWriterSettings) {
     super(app);
@@ -26,6 +27,7 @@ export class AIActionModal extends Modal {
 
     contentEl.createEl("h3", { text: "AI Writing Assistant" });
 
+    // Task dropdown
     new Setting(contentEl)
       .setName("Task")
       .addDropdown(dd =>
@@ -33,27 +35,42 @@ export class AIActionModal extends Modal {
           .addOption("lexical", "Lexical check & fix")
           .addOption("refine", "Refine")
           .addOption("rewrite", "Rewrite")
-          .onChange(val => (this.action = val as ActionType))
+          .onChange(val => {
+            this.action = val as ActionType;
+          })
       );
 
-    new Setting(contentEl)
-      .setName("Run")
-      .addButton(btn =>
-        btn
-          .setButtonText("Analyze")
-          .setCta()
-          .onClick(() => this.run())
-      );
+    // Analyze button
+    const btnSetting = new Setting(contentEl)
+      .setName("Run");
+
+    this.analyzeButton = btnSetting.controlEl.createEl("button", {
+      text: "Analyze"
+    });
+    this.analyzeButton.addClass("mod-cta");
+    this.analyzeButton.disabled = false;
+
+    this.analyzeButton.addEventListener("click", () => this.run());
+
+    contentEl.createDiv({
+      cls: "ai-selection-notice",
+      text: "You must select the text before running the plugin."
+    });
   }
 
   async run() {
-    const selected = this.editor.getSelection();
-    const originalText = selected || this.editor.getValue();
+    const selection = this.editor.getSelection() ?? "";
+    const selectionTrimmed = selection.trim();
 
-    new Notice("AI is analyzing…");
+    if (!selectionTrimmed) {
+      new Notice(
+        "You must select the text before running the plugin (select all if you want the entire note)."
+      );
+      return;
+    }
 
     const result = await runAI({
-      text: originalText,
+      text: selectionTrimmed,
       action: this.action,
       apiKey: this.settings.apiKey
     });
@@ -66,15 +83,11 @@ export class AIActionModal extends Modal {
     if (this.action === "lexical") {
       new LexicalPreviewModal(
         this.app,
-        originalText,
+        selectionTrimmed,
         result.fixedText,
         result.issues,
         () => {
-          if (selected) {
-            this.editor.replaceSelection(result.fixedText);
-          } else {
-            this.editor.setValue(result.fixedText);
-          }
+          this.editor.replaceSelection(result.fixedText);
         }
       ).open();
     } else {
@@ -83,11 +96,7 @@ export class AIActionModal extends Modal {
         result.text,
         result.explanation,
         () => {
-          if (selected) {
-            this.editor.replaceSelection(result.text);
-          } else {
-            this.editor.setValue(result.text);
-          }
+          this.editor.replaceSelection(result.text);
         }
       ).open();
     }

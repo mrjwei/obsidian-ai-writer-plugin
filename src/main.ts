@@ -40,6 +40,14 @@ export default class AIWritingAssistant extends Plugin {
       return;
     }
 
+    const selection = view.editor.getSelection()?.trim() ?? "";
+    if (!selection) {
+      new Notice(
+        "You must select the text before running the plugin (select all if you want the entire note)."
+      );
+      return;
+    }
+
     if (!this.settings.apiKey) {
       new Notice("Please set your OpenAI API key in settings.");
       return;
