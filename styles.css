@@ -1,8 +1,17 @@
-/*
+.ai-lexical-preview {
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.ai-lexical-underline {
+  text-decoration: underline;
+  text-decoration-color: red;
+  text-decoration-thickness: 2px;
+  cursor: help;
+}
 
-If your plugin does not need CSS, delete this file.
-
-*/
+.ai-preview-buttons {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1em;
+}
