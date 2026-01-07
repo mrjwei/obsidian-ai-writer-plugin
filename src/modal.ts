@@ -1,5 +1,6 @@
 import { App, Editor, Modal, Setting, Notice } from "obsidian";
 import { runAI } from "./ai";
+import type { LexicalIssue } from "./types";
 import { PreviewModal } from "./preview-modal";
 import { LexicalPreviewModal } from "./lexical-preview-modal";
 import { AIWriterSettings } from "./settings";
@@ -25,7 +26,7 @@ export class AIActionModal extends Modal {
     const { contentEl } = this;
     contentEl.empty();
 
-    contentEl.createEl("h3", { text: "AI Writing Assistant" });
+    contentEl.createEl("h3", { text: "AI writing assistant" });
 
     // Task dropdown
     new Setting(contentEl)
@@ -50,7 +51,7 @@ export class AIActionModal extends Modal {
     this.analyzeButton.addClass("mod-cta");
     this.analyzeButton.disabled = false;
 
-    this.analyzeButton.addEventListener("click", () => this.run());
+    this.analyzeButton.addEventListener("click", () => { void this.run(); });
 
     contentEl.createDiv({
       cls: "ai-selection-notice",
@@ -80,23 +81,25 @@ export class AIActionModal extends Modal {
       return;
     }
 
-    if (this.action === "lexical") {
+    if (result && typeof result === "object" && "fixedText" in result && "issues" in result) {
+      const lexical = result as { fixedText: string; issues: LexicalIssue[] };
       new LexicalPreviewModal(
         this.app,
         selectionTrimmed,
-        result.fixedText,
-        result.issues,
+        lexical.fixedText,
+        lexical.issues,
         () => {
-          this.editor.replaceSelection(result.fixedText);
+          this.editor.replaceSelection(lexical.fixedText);
         }
       ).open();
-    } else {
+    } else if (result && typeof result === "object" && "text" in result) {
+      const refined = result as { text: string; explanation?: string };
       new PreviewModal(
         this.app,
-        result.text,
-        result.explanation,
+        refined.text,
+        refined.explanation,
         () => {
-          this.editor.replaceSelection(result.text);
+          this.editor.replaceSelection(refined.text);
         }
       ).open();
     }

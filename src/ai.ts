@@ -1,13 +1,5 @@
-type LexicalIssue = {
-  text: string;
-  suggestion: string;
-  message: string;
-};
-
-type LexicalResult = {
-  fixedText: string;
-  issues: LexicalIssue[];
-};
+import { requestUrl } from "obsidian";
+import type { LexicalResult } from "./types";
 
 export async function runAI({
   text,
@@ -17,7 +9,7 @@ export async function runAI({
   text: string;
   action: "lexical" | "refine" | "rewrite";
   apiKey: string;
-}): Promise<any | null> {
+}): Promise<LexicalResult | { text: string; explanation?: string } | null> {
   const systemPrompt =
     action === "lexical"
       ? `
@@ -55,7 +47,8 @@ Explanation:
 - Briefly explain major changes.
 `;
 
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+  const response = await requestUrl({
+    url: "https://api.openai.com/v1/chat/completions",
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -71,14 +64,28 @@ Explanation:
     })
   });
 
-  const json = await res.json();
-  const content = json.choices?.[0]?.message?.content;
+  const raw: unknown = JSON.parse(response.text);
+  const data = raw as { choices?: Array<{ message?: { content?: string } }> };
+  const content: string | undefined = data.choices?.[0]?.message?.content;
   if (!content) return null;
 
   if (action === "lexical") {
-    return JSON.parse(content) as LexicalResult;
+    const parsed: unknown = JSON.parse(content);
+    const maybe = parsed as Partial<LexicalResult>;
+    if (
+      typeof maybe === "object" &&
+      maybe !== null &&
+      typeof maybe.fixedText === "string" &&
+      Array.isArray(maybe.issues)
+    ) {
+      return {
+        fixedText: maybe.fixedText,
+        issues: maybe.issues
+      };
+    }
+    return null;
   }
 
   const [main, explanation] = content.split("\n\nExplanation:\n");
-  return { text: main.trim(), explanation: explanation?.trim() };
+  return { text: main!.trim(), explanation: explanation?.trim() };
 }

@@ -1,3 +1,5 @@
+/* eslint-disable obsidianmd/settings-tab/no-problematic-settings-headings */
+/* eslint-disable obsidianmd/ui/sentence-case */
 import { App, PluginSettingTab, Setting } from "obsidian";
 import AIWritingAssistant from "./main";
 
@@ -13,10 +15,12 @@ export class AIWriterSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl("h3", { text: "AI Writing Assistant" });
+    new Setting(containerEl)
+      .setName("AI writing assistant")
+      .setHeading();
 
     new Setting(containerEl)
-      .setName("OpenAI API Key")
+      .setName("Openai apikey")
       .setDesc("Stored locally in your vault")
       .addText(text => {
         text.setPlaceholder("sk-...")

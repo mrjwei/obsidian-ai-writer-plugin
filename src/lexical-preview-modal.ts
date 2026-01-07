@@ -1,10 +1,5 @@
 import { App, Modal, ButtonComponent } from "obsidian";
-
-type LexicalIssue = {
-  text: string;
-  suggestion: string;
-  message: string;
-};
+import type { LexicalIssue } from "./types";
 
 export class LexicalPreviewModal extends Modal {
   original: string;
@@ -30,13 +25,14 @@ export class LexicalPreviewModal extends Modal {
     const { contentEl } = this;
     contentEl.empty();
 
-    contentEl.createEl("h3", { text: "Lexical Issues Found" });
+    contentEl.createEl("h3", { text: "Lexical issues found" });
 
     const preview = contentEl.createDiv({
       cls: "ai-lexical-preview"
     });
 
-    preview.innerHTML = this.renderAnchored();
+    const frag = this.renderAnchoredFragment();
+    preview.appendChild(frag);
 
     const buttons = contentEl.createDiv({ cls: "ai-preview-buttons" });
 
@@ -53,26 +49,56 @@ export class LexicalPreviewModal extends Modal {
       .onClick(() => this.close());
   }
 
-  renderAnchored(): string {
-    let html = this.escape(this.original);
+  private renderAnchoredFragment(): DocumentFragment {
+    const fragment = document.createDocumentFragment();
+
+    type Range = { start: number; end: number; issue: LexicalIssue };
+    const ranges: Range[] = [];
 
     for (const issue of this.issues) {
-      const escaped = this.escape(issue.text);
-
-      const replacement = `<span class="ai-lexical-underline" title="${this.escape(
-        issue.message + " → " + issue.suggestion
-      )}">${escaped}</span>`;
-
-      html = html.split(escaped).join(replacement);
+      const needle = issue.text;
+      if (!needle) continue;
+      let from = 0;
+      while (true) {
+        const idx = this.original.indexOf(needle, from);
+        if (idx === -1) break;
+        ranges.push({ start: idx, end: idx + needle.length, issue });
+        from = idx + needle.length;
+      }
     }
 
-    return html.replace(/\n/g, "<br>");
+    ranges.sort((a, b) => a.start - b.start || a.end - b.end);
+    const merged: Range[] = [];
+    for (const r of ranges) {
+      const last = merged[merged.length - 1];
+      if (!last || r.start >= last.end) merged.push(r);
+    }
+
+    let cursor = 0;
+    for (const r of merged) {
+      if (cursor < r.start) {
+        this.appendTextWithLineBreaks(fragment, this.original.slice(cursor, r.start));
+      }
+      const span = document.createElement("span");
+      span.className = "ai-lexical-underline";
+      span.title = `${r.issue.message} → ${r.issue.suggestion}`;
+      this.appendTextWithLineBreaks(span, this.original.slice(r.start, r.end));
+      fragment.appendChild(span);
+      cursor = r.end;
+    }
+
+    if (cursor < this.original.length) {
+      this.appendTextWithLineBreaks(fragment, this.original.slice(cursor));
+    }
+
+    return fragment;
   }
 
-  escape(text: string): string {
-    return text
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
+  private appendTextWithLineBreaks(parent: DocumentFragment | HTMLElement, text: string) {
+    const parts = text.split("\n");
+    parts.forEach((part, idx) => {
+      parent.appendChild(document.createTextNode(part));
+      if (idx < parts.length - 1) parent.appendChild(document.createElement("br"));
+    });
   }
 }
